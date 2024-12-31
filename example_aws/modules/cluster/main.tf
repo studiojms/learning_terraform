@@ -1,11 +1,3 @@
-data "aws_secretsmanager_secret" "secret" {
-  arn = "arn:aws:secretsmanager:us-east-1:000000000000:secret:prod/terraform/db-BIXMpu"
-}
-
-data "aws_secretsmanager_secret_version" "current" {
-  secret_id = data.aws_secretsmanager_secret.secret.id
-}
-
 resource "aws_launch_template" "template" {
   name          = "${var.prefix}-template"
   image_id      = "ami-0c55b159cbfafe1f0"
@@ -14,8 +6,15 @@ resource "aws_launch_template" "template" {
   user_data = base64encode(
     <<-EOF
         #!/bin/bash
-        DB_STR="Server=${jsondecode(data.aws_secretsmanager_secret_version.current.secret_string)["Host"]};Database=${jsondecode(data.aws_secretsmanager_secret_version.current.secret_string)["DB"]};User=${jsondecode(data.aws_secretsmanager_secret_version.current.secret_string)["Username"]};Password=${jsondecode(data.aws_secretsmanager_secret_version.current.secret_string)["Password"]}"
-        echo $DB_STR > /tmp/db_str.txt
+        yum update -y
+        yum install -y nginx
+        systemctl start nginx
+        systemctl enable nginx
+        public_ip=$(curl http://checkip.amazonaws.com/)
+
+        echo "<html><body><h1>Hello, <b>$public_ip</b></h1></body></html>" > /usr/share/nginx/html/index.html
+
+        systemctl restart nginx
     EOF
   )
 
@@ -39,6 +38,7 @@ resource "aws_autoscaling_group" "asg" {
   min_size            = 1
   max_size            = 3
   vpc_zone_identifier = var.subnet_ids
+  target_group_arns   = [aws_lb_target_group.app_tg.arn]
 
   launch_template {
     id      = aws_launch_template.template.id
@@ -93,5 +93,50 @@ resource "aws_cloudwatch_metric_alarm" "scale_in_alarm" {
 
   dimensions = {
     AutoScalingGroupName = aws_autoscaling_group.asg.name
+  }
+}
+
+resource "aws_lb" "app_lb" {
+  name               = "${var.prefix}-app-alb"
+  internal           = false
+  load_balancer_type = "application"
+  security_groups    = var.security_group_ids
+  subnets            = var.subnet_ids
+
+  enable_deletion_protection = false
+
+  tags = {
+    Name = "${var.prefix}-app-alb"
+  }
+}
+
+resource "aws_lb_target_group" "app_tg" {
+  name     = "${var.prefix}-app-tg"
+  port     = 80
+  protocol = "HTTP"
+  vpc_id   = var.vpc_id
+
+  health_check {
+    path                = "/"
+    matcher             = "200"
+    healthy_threshold   = 3
+    unhealthy_threshold = 3
+    timeout             = 5
+    interval            = 10
+  }
+
+  tags = {
+    Name = "${var.prefix}-app-tg"
+  }
+}
+
+resource "aws_lb_listener" "app_lb_listener" {
+  load_balancer_arn = aws_lb.app_lb.arn
+  port              = "80"
+  protocol          = "HTTP"
+
+  default_action {
+    type             = "forward"
+    target_group_arn = aws_lb_target_group.app_tg.arn
   }
 }

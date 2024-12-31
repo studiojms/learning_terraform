@@ -8,6 +8,11 @@ variable "subnet_ids" {
   type        = list(string)
 }
 
+variable "vpc_id" {
+  description = "The ID of the VPC to use for the cluster"
+  type        = string
+}
+
 variable "security_group_ids" {
   description = "The IDs of the security groups to use for the cluster"
   type        = list(string)
