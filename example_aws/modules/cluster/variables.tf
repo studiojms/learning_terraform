@@ -21,5 +21,42 @@ variable "security_group_ids" {
 variable "instance_count" {
   description = "The number of instances to launch"
   type        = number
+}
 
+variable "user_data" {
+  description = "The user data to use for the instances"
+  type        = string
+}
+
+variable "desired_capacity" {
+  description = "The desired capacity of the autoscaling group"
+  type        = number
+}
+
+variable "min_size" {
+  description = "The minimum size of the autoscaling group"
+  type        = number
+}
+
+variable "max_size" {
+  description = "The maximum size of the autoscaling group"
+  type        = number
+}
+
+variable "scale_in" {
+  type = object({
+    scaling_adjustment = number
+    cooldown           = number
+    threshold          = number
+  })
+  description = "values for scale in"
+}
+
+variable "scale_out" {
+  type = object({
+    scaling_adjustment = number
+    cooldown           = number
+    threshold          = number
+  })
+  description = "values for scale out"
 }

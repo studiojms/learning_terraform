@@ -3,20 +3,7 @@ resource "aws_launch_template" "template" {
   image_id      = "ami-0c55b159cbfafe1f0"
   instance_type = "t2.micro"
 
-  user_data = base64encode(
-    <<-EOF
-        #!/bin/bash
-        yum update -y
-        yum install -y nginx
-        systemctl start nginx
-        systemctl enable nginx
-        public_ip=$(curl http://checkip.amazonaws.com/)
-
-        echo "<html><body><h1>Hello, <b>$public_ip</b></h1></body></html>" > /usr/share/nginx/html/index.html
-
-        systemctl restart nginx
-    EOF
-  )
+  user_data = base64encode(var.user_data)
 
   network_interfaces {
     associate_public_ip_address = true
@@ -28,15 +15,14 @@ resource "aws_launch_template" "template" {
     tags = {
       Name = "${var.prefix}-node"
     }
-
   }
 }
 
 resource "aws_autoscaling_group" "asg" {
   name                = "${var.prefix}-asg"
-  desired_capacity    = 2
-  min_size            = 1
-  max_size            = 3
+  desired_capacity    = var.desired_capacity
+  min_size            = var.min_size
+  max_size            = var.max_size
   vpc_zone_identifier = var.subnet_ids
   target_group_arns   = [aws_lb_target_group.app_tg.arn]
 
@@ -50,8 +36,8 @@ resource "aws_autoscaling_policy" "scale_out_policy" {
   name                   = "${var.prefix}-scale-out"
   autoscaling_group_name = aws_autoscaling_group.asg.name
   adjustment_type        = "ChangeInCapacity"
-  scaling_adjustment     = 1
-  cooldown               = 120
+  scaling_adjustment     = var.scale_out.scaling_adjustment
+  cooldown               = var.scale_out.cooldown
 }
 
 resource "aws_cloudwatch_metric_alarm" "scale_out_alarm" {
@@ -59,7 +45,7 @@ resource "aws_cloudwatch_metric_alarm" "scale_out_alarm" {
   alarm_description   = "Monitors CPU utilization"
   comparison_operator = "GreaterThanOrEqualToThreshold"
   alarm_actions       = [aws_autoscaling_policy.scale_out_policy.arn]
-  threshold           = 80
+  threshold           = var.scale_out.threshold
   evaluation_periods  = 2
   metric_name         = "CPUUtilization"
   namespace           = "AWS/EC2"
@@ -75,8 +61,8 @@ resource "aws_autoscaling_policy" "scale_in_policy" {
   name                   = "${var.prefix}-scale-in"
   autoscaling_group_name = aws_autoscaling_group.asg.name
   adjustment_type        = "ChangeInCapacity"
-  scaling_adjustment     = -1
-  cooldown               = 120
+  scaling_adjustment     = var.scale_in.scaling_adjustment
+  cooldown               = var.scale_in.cooldown
 }
 
 resource "aws_cloudwatch_metric_alarm" "scale_in_alarm" {
@@ -84,7 +70,7 @@ resource "aws_cloudwatch_metric_alarm" "scale_in_alarm" {
   alarm_description   = "Monitors CPU utilization"
   comparison_operator = "LessThanOrEqualToThreshold"
   alarm_actions       = [aws_autoscaling_policy.scale_in_policy.arn]
-  threshold           = 20
+  threshold           = var.scale_in.threshold
   evaluation_periods  = 2
   metric_name         = "CPUUtilization"
   namespace           = "AWS/EC2"

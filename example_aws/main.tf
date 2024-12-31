@@ -12,4 +12,10 @@ module "cluster" {
   security_group_ids = [module.network.security_group_id]
   instance_count     = var.instance_count
   vpc_id             = module.network.vpc_id
+  user_data          = file("user_data.sh")
+  desired_capacity   = 2
+  min_size           = 1
+  max_size           = 3
+  scale_in           = var.scale_in
+  scale_out          = var.scale_out
 }
