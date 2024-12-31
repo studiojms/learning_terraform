@@ -3,9 +3,9 @@ variable "prefix" {
   type        = string
 }
 
-variable "subnet_id" {
-  description = "The ID of the subnet to use for the cluster"
-  type        = string
+variable "subnet_ids" {
+  description = "The IDs of the subnets to use for the cluster"
+  type        = list(string)
 }
 
 variable "security_group_ids" {
