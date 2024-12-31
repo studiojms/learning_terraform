@@ -7,6 +7,14 @@ terraform {
   }
 }
 
+data "aws_secretsmanager_secret" "secret" {
+  arn = "arn:aws:secretsmanager:us-east-1:000000000000:secret:prod/terraform/db-BIXMpu"
+}
+
+data "aws_secretsmanager_secret_version" "current" {
+  secret_id = data.aws_secretsmanager_secret.secret.id
+}
+
 provider "aws" {
   #   region     = "us-east-1"
   #   access_key = "test"
@@ -28,6 +36,12 @@ resource "aws_instance" "example_instance" {
   ami           = "ami-0c55b159cbfafe1f0"
   instance_type = "t2.micro"
   subnet_id     = aws_subnet.example_subnet.id
+
+  user_data = <<-EOF
+              #!/bin/bash
+              DB_STR="Server=${jsondecode(data.aws_secretsmanager_secret_version.current.secret_string)["Host"]};Database=${jsondecode(data.aws_secretsmanager_secret_version.current.secret_string)["DB"]};User=${jsondecode(data.aws_secretsmanager_secret_version.current.secret_string)["Username"]};Password=${jsondecode(data.aws_secretsmanager_secret_version.current.secret_string)["Password"]}"
+              echo $DB_STR > /tmp/db_str.txt
+              EOF
 }
 
 resource "aws_internet_gateway" "example_igw" {

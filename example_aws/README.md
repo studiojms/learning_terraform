@@ -9,6 +9,18 @@ This example shows how to run terraform with AWS and localstack.
 - [Terraform](https://learn.hashicorp.com/tutorials/terraform/install-cli)
 - [Python](https://www.python.org/downloads/)
 
+#### Configure AWS profile
+
+```bash
+aws configure --profile localstack
+```
+
+#### Create the secret manager data
+
+```bash
+aws --endpoint http://localhost:4566 --profile localstack secretsmanager create-secret --name prod/terraform/db --description "Prod DB data" --secret-string "{\"Host\":\"localhost\",\"Username\":\"admin\",\"Password\":\"0ea6be79e04ac1b0400d65ffc11088f9\",\"DB\":\"db\"}"
+```
+
 ### Setting up localstack with python
 
 1. Activate a virtual environment
